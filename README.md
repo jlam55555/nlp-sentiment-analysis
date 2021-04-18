@@ -4,6 +4,7 @@
 
 # Instructions
 
+Unix
 Virtual environment
 ```bash
 # to create
@@ -11,6 +12,11 @@ python3 -m venv venv
 
 # to activate
 source venv/bin/activate
+```
+
+Windows
+```cmd
+venv\Scripts\activate
 ```
 
 Leaving the virtual environment
