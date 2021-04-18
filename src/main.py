@@ -1,4 +1,6 @@
+import requests
 import tensorflow as tf
+import tensorflow_text as tf_text
 import numpy as np
 
 
@@ -22,6 +24,28 @@ if __name__ == '__main__':
     # TODO: grab dataset
 
     # TODO: preprocess
+    # https://www.tensorflow.org/tutorials/tensorflow_text/tokenizers
+    # tokenizer = tf_text.WhitespaceTokenizer()
+    # tokens = tokenizer.tokenize(["What you know you can't explain, but you feel it."])
+    # print(tokens.to_list())
+
+    # Split into subtokens
+    # url = "https://github.com/tensorflow/text/blob/master/tensorflow_text/python/ops/test_data/test_wp_en_vocab.txt?raw=true"
+    # f = requests.get(url)
+    # filepath = "vocab.txt"
+    # open(filepath, 'wb').write(f.content)
+
+    # subtokenizer = tf_text.UnicodeScriptTokenizer(filepath)
+    # subtokens = tokenizer.tokenize(tokens)
+    # print(subtokens.to_list())
+
+    docs = tf.data.Dataset.from_tensor_slices([['Never tell me the odds.'], ["It's a trap!"]])
+    tokenizer = tf_text.WhitespaceTokenizer()
+    tokenized_docs = docs.map(lambda x: tokenizer.tokenize(x))
+
+    iterator = iter(tokenized_docs)
+    print(next(iterator).to_list())
+    print(next(iterator).to_list())
 
     # TODO: ???
 
