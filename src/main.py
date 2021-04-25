@@ -1,6 +1,7 @@
 import requests
 import tensorflow as tf
 import tensorflow_text as tf_text
+import tensorflow_hub as hub
 import numpy as np
 
 
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     iterator = iter(tokenized_docs)
     print(next(iterator).to_list())
     print(next(iterator).to_list())
-
+    
     # TODO: ???
 
     pass
