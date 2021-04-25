@@ -112,7 +112,7 @@ def parseData():
 
     # Split the list of tuples into separate lists
     names, text = zip(*parsed)
-    
+
     return list(names), list(text)
 
 
@@ -126,12 +126,13 @@ if __name__ == '__main__':
     num_examples = len(text)
 
     # Prepare the dataset
-    dataset = tf.data.Dataset.from_tensor_slices(text)
-    dataset = dataset.shuffle(num_examples)
-    dataset = dataset.repeat()
-    # dataset = dataset.batch(BATCH_SIZE)
-    dataset = dataset.map(lambda ex: (bert_preprocess_model(ex), 1))
-    dataset = dataset.cache().prefetch(buffer_size=AUTOTUNE)
+    TEMP_PLACEHOLDER_LABEL = 1
+    dataset = tf.data.Dataset.from_tensor_slices(text) \
+                    .shuffle(num_examples) \
+                    .repeat() \
+                    .batch(BATCH_SIZE) \
+                    .map(lambda ex: (bert_preprocess_model(ex), TEMP_PLACEHOLDER_LABEL)) \
+                    .cache().prefetch(buffer_size=AUTOTUNE)
 
     # Build the model
     classifier_model = build_classifier_model(2)
