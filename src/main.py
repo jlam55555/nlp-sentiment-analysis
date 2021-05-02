@@ -6,10 +6,18 @@ import tensorflow_hub as hub
 import numpy as np
 
 
+# Path to scraped data
+DATA_PATH = "data/hydrated/all.json"
+
 # Constants
+TRAIN_PERCENT = 80
+
+# Model Constants
 AUTOTUNE = tf.data.AUTOTUNE
 BATCH_SIZE = 8
-
+OPTIMIZER = tf.keras.optimizers.Adam()
+LOSS = tf.keras.losses.MeanSquaredError()
+METRICS = tf.keras.metrics.MeanSquaredError()
 
 # From:
 # https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
@@ -27,6 +35,7 @@ if gpus:
         print(e)
 
 
+# The following 2 functions are from:
 # https://colab.research.google.com/github/tensorflow/docs/blob/master/site/en/tutorials/text/solve_glue_tasks_using_bert_on_tpu.ipynb
 def make_bert_preprocess_model(sentence_features, seq_length=128):
 
@@ -66,7 +75,7 @@ def make_bert_preprocess_model(sentence_features, seq_length=128):
 
 
 # Maybe add another dense layer
-def build_classifier_model(num_classes):
+def build_regression_model(num_classes):
 
     inputs = dict(
         input_word_ids=tf.keras.layers.Input(shape=(None,), dtype=tf.int32),
@@ -78,70 +87,77 @@ def build_classifier_model(num_classes):
                                 trainable=True, name='encoder')
     net = encoder(inputs)['pooled_output']
     net = tf.keras.layers.Dropout(rate=0.1)(net)
-    net = tf.keras.layers.Dense(num_classes, activation=None, name='classifier')(net)
+    net = tf.keras.layers.Dense(num_classes, activation=None, name='regression')(net)
     return tf.keras.Model(inputs, net, name='prediction')
 
 
-# def load_dataset_from_tfds(in_memory_ds, info, split, batch_size,
-#                            bert_preprocess_model):
-
-#     is_training = split.startswith('train')
-#     dataset = tf.data.Dataset.from_tensor_slices(in_memory_ds[split])
-#     num_examples = info.splits[split].num_examples
-
-#     if is_training:
-#         dataset = dataset.shuffle(num_examples)
-#         dataset = dataset.repeat()
-#     dataset = dataset.batch(batch_size)
-#     dataset = dataset.map(lambda ex: (bert_preprocess_model(ex), ex['label']))
-#     dataset = dataset.cache().prefetch(buffer_size=AUTOTUNE)
-#     return dataset, num_examples
-
-
-
-FILE_PATH = "data/hydrated/april1_april2.json"
 def parseData():
 
     # Read the json
-    with open(FILE_PATH, 'r', encoding='utf-8') as f:
+    with open(DATA_PATH, 'r', encoding='utf-8') as f:
         raw = f.read()
 
     # Parse the json
     parsed = json.loads(raw)
-    parsed = [ ( str(x['id']), np.array([x['text']]) ) for x in parsed ]
+    parsed = [ ( str(x['id']), { 'sentence': tf.reshape(tf.convert_to_tensor(x['text']), [1]), 
+                                'label': tf.reshape(tf.convert_to_tensor(x['label']), [1]) } ) for x in parsed ]
 
     # Split the list of tuples into separate lists
-    names, text = zip(*parsed)
+    names, inputs = zip(*parsed)
 
-    return list(names), list(text)
+    # Convert to a dict of tensors
+    # inputs = { text), 'label': tf.convert_to_tensor(label) }
+
+    return list(names), inputs
 
 
 if __name__ == '__main__':
 
     # Load the data
-    _, text = parseData()
+    _, inputs = parseData()
+    # # print(inputs)
+    # for ex in inputs:
+    #     print(ex)
+    num_examples = len(inputs)
+    print(num_examples)
 
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
-    num_examples = len(text)
-
+    
     # Prepare the dataset
-    TEMP_PLACEHOLDER_LABEL = 1
-    dataset = tf.data.Dataset.from_tensor_slices(text) \
-                    .shuffle(num_examples) \
-                    .repeat() \
-                    .batch(BATCH_SIZE) \
-                    .map(lambda ex: (bert_preprocess_model(ex), TEMP_PLACEHOLDER_LABEL)) \
-                    .cache().prefetch(buffer_size=AUTOTUNE)
+    dataset = tf.data.Dataset.from_tensor_slices(inputs) \
+                .map(lambda ex: (bert_preprocess_model(ex), ex['label'])) \
+                .shuffle(num_examples, reshuffle_each_iteration=False) \
+
+    for x,y in dataset.enumerate().take(2):
+        print( x,y )
+
+    ################################ CHANGE SUFFLE TO NUM_TRAIN AND NUM_TEST
+    # Split the dataset
+    # Idea from https://stackoverflow.com/a/58452268
+    # dsTrain = dataset.enumerate() \
+    #                 .filter( lambda x,y: x % 100 < TRAIN_PERCENT ) \
+    #                 .map( lambda x,y: y )
+    # dsTest = dataset.enumerate() \
+    #                 .filter( lambda x,y: x % 100 >= TRAIN_PERCENT ) \
+    #                 .map( lambda x,y: y )
+    
+    # Finish preparing the datasets
+    # dsTrain = dsTrain.shuffle(num_examples) \
+    #                 .repeat() \
+    #                 .batch(BATCH_SIZE) \
+    #                 .cache().prefetch(buffer_size=AUTOTUNE)
+    # dsTest = dsTest.batch(BATCH_SIZE) \
+    #                 .cache().prefetch(buffer_size=AUTOTUNE)
 
     # Build the model
-    classifier_model = build_classifier_model(2)
-
-    # TODO: Train the model
+    regression_model = build_regression_model(1)
 
     # Drop the label b/c testing the model
     for row in dataset.take(5).map(lambda x,y: x):
-        bert_raw_result = classifier_model(row)
+        bert_raw_result = regression_model(row)
         print(tf.sigmoid(bert_raw_result))
 
+    # TODO: Train the model
+    regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
         
