@@ -99,35 +99,41 @@ def parseData():
 
     # Parse the json
     parsed = json.loads(raw)
-    parsed = [ ( str(x['id']), { 'sentence': tf.reshape(tf.convert_to_tensor(x['text']), [1]), 
-                                'label': tf.reshape(tf.convert_to_tensor(x['label']), [1]) } ) for x in parsed ]
+    parsed = [ ( str(x['id']), np.array( [x['text']] ), x['label'] ) for x in parsed ]
 
     # Split the list of tuples into separate lists
-    names, inputs = zip(*parsed)
+    names, text, label = zip(*parsed)
 
     # Convert to a dict of tensors
     # inputs = { text), 'label': tf.convert_to_tensor(label) }
 
-    return list(names), inputs
+    return list(names), list(text), list(label)
 
 
 if __name__ == '__main__':
 
     # Load the data
-    _, inputs = parseData()
-    # # print(inputs)
-    # for ex in inputs:
-    #     print(ex)
-    num_examples = len(inputs)
+    _, text, label = parseData()
+    num_examples = len(label)
     print(num_examples)
 
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
-    
+    text = [ bert_preprocess_model(x) for x in text ]
+    print(text)
     # Prepare the dataset
-    dataset = tf.data.Dataset.from_tensor_slices(inputs) \
-                .map(lambda ex: (bert_preprocess_model(ex), ex['label'])) \
-                .shuffle(num_examples, reshuffle_each_iteration=False) \
+    # TEMP_PLACEHOLDER_LABEL = 1
+    # dataset = tf.data.Dataset.from_tensor_slices(text) \
+    #             .map(lambda ex: (bert_preprocess_model(ex), TEMP_PLACEHOLDER_LABEL)) \
+    #             .shuffle(num_examples, reshuffle_each_iteration=False)
+    
+    
+    # dsTempText = tf.data.Dataset.from_tensor_slices(text) \
+    #                 .map( lambda ex: bert_preprocess_model(ex) )
+    # dsTempLabel = tf.data.Dataset.from_tensor_slices(label) 
+    # temp = [x for x in dsTempText]
+    # print( textPreprocessed )
+    dataset = tf.data.Dataset.from_tensor_slices( (text, label) )
 
     for x,y in dataset.enumerate().take(2):
         print( x,y )
