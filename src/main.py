@@ -4,6 +4,7 @@ import tensorflow_text as tf_text
 import tensorflow_hub as hub
 
 import os
+import pandas as pd
 import json
 import requests
 
@@ -16,8 +17,9 @@ TRAIN_PERCENT = 80
 
 # Model Constants
 NUM_EPOCHS = 20
-BATCH_SIZE = 8
-OPTIMIZER = tf.keras.optimizers.SGD()
+BATCH_SIZE = 16
+# OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
+OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005)
 LOSS = tf.keras.losses.MeanSquaredError()
 METRICS = tf.keras.metrics.MeanSquaredError()
 AUTOTUNE = tf.data.AUTOTUNE
@@ -32,7 +34,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_path, 
     verbose=1, 
     save_weights_only=True,
-    period=10)  # Saves every 10 epochs
+    period=50)  # Saves every 10 epochs
 
 
 # From:
@@ -102,8 +104,11 @@ def build_regression_model(num_features):
     encoder = hub.KerasLayer("https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/4",
                                 trainable=True, name='encoder')
     net = encoder(inputs)['pooled_output']
-    # net = tf.keras.layers.Dropout(rate=0.1)(net)
-    net = tf.keras.layers.Dense(256, activation=tf.keras.layers.ReLU(), name='finetune')(net)
+    net = tf.keras.layers.Dropout(rate=0.1)(net)
+    net = tf.keras.layers.BatchNormalization()(net)
+    net = tf.keras.layers.Dense(128, activation=tf.keras.layers.ReLU(), name='finetune1')(net)
+    net = tf.keras.layers.Dense(64, activation=tf.keras.layers.ReLU(), name='finetune2')(net)
+    net = tf.keras.layers.Dense(32, activation=tf.keras.layers.ReLU(), name='finetune3')(net)
     net = tf.keras.layers.Dense(num_features, activation=None, name='regression')(net)
     return tf.keras.Model(inputs, net, name='prediction')
 
@@ -133,7 +138,7 @@ if __name__ == '__main__':
     _, text, label = parseData()
     num_examples = len(label)
     print(num_examples)
-
+    label *= 100
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
     
@@ -185,6 +190,13 @@ if __name__ == '__main__':
     # TODO: Train the model
     steps_per_epoch = 100 // BATCH_SIZE
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
+
+    dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
+                    .batch(BATCH_SIZE) \
+                    .map( lambda ex,label: (bert_preprocess_model(ex),label) )
+    regression_model.evaluate(dsTest)
+    y_init = regression_model.predict(dsTest)
+
     regression_model.fit(
         x=dsTrain,
         epochs=NUM_EPOCHS,
@@ -192,9 +204,10 @@ if __name__ == '__main__':
         callbacks = cp_callback
     )
 
-    dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
-                    .batch(BATCH_SIZE) \
-                    .map( lambda ex,label: (bert_preprocess_model(ex),label) )
+    # dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
+    #                 .batch(BATCH_SIZE) \
+    #                 .map( lambda ex,label: (bert_preprocess_model(ex),label) )
     regression_model.evaluate(dsTest)
     y = regression_model.predict(dsTest)
-    print( (y,label[100:150]) )
+    df = pd.DataFrame( list(zip(y_init, y, label[100:150])), columns=['Init', 'Predicted', 'Actual'] )
+    print(df)

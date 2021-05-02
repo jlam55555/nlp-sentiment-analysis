@@ -4,3 +4,6 @@ venv
 # VSCode settings
 .vscode
 tempCodeRunnerFile.py
+
+# Model checkpoints
+training
