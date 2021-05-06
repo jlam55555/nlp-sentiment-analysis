@@ -21,7 +21,7 @@ NUM_EXAMPLES_TO_VIEW = 100 // BATCH_SIZE    # Number of examples to display the 
 # Model Constants
 # OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
-OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0001)   # Use w/o dropout
+OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.00025)   # Use w/o dropout
 LOSS = tf.keras.losses.MeanSquaredError()
 METRICS = tf.keras.metrics.MeanSquaredError()
 AUTOTUNE = tf.data.AUTOTUNE
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     print( "Number of training examples:", num_train_examples )
     print( "Number of testing examples:", num_test_examples )
     dsTrain = dsTrain \
-                    .shuffle( num_train_examples ) \
+                    .shuffle(num_train_examples) \
                     .repeat() \
                     .batch(BATCH_SIZE) \
                     .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
@@ -175,10 +175,6 @@ if __name__ == '__main__':
                     .batch(BATCH_SIZE) \
                     .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
                     .cache().prefetch(buffer_size=AUTOTUNE)
-                    
-    
-
-                    
 
     # Build the model
     print("Building the model...")
@@ -204,6 +200,8 @@ if __name__ == '__main__':
         x=dsTrain,
         epochs=NUM_EPOCHS,
         steps_per_epoch=steps_per_epoch,
+        validation_data=dsTest,
+        validation_steps=num_test_examples // BATCH_SIZE,
         callbacks=cp_callback
     )
 
