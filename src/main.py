@@ -139,19 +139,14 @@ if __name__ == '__main__':
     # Load the data
     _, text, label = parseData()
     num_examples = len(label)
-    num_batched_examples = num_examples // BATCH_SIZE
     print( "Number of examples:", num_examples )
-    print( "Number of (batched) examples:", num_batched_examples )
 
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
     
     # Prepare the dataset
     print("Preparing the dataset...")
-    dataset = tf.data.Dataset.from_tensor_slices( (text, label) ) \
-                    .batch(BATCH_SIZE) \
-                    .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
-                    .shuffle(100)
+    dataset = tf.data.Dataset.from_tensor_slices( (text, label) )
 
     ################################ CHANGE SUFFLE TO NUM_TRAIN AND NUM_TEST
     # Split the dataset
@@ -162,20 +157,28 @@ if __name__ == '__main__':
     dsTest = dataset.enumerate() \
                     .filter( lambda x,y: x % 100 >= TRAIN_PERCENT ) \
                     .map( lambda x,y: y )
-    
+
     # Finish preparing the datasets
-    num_batched_train_examples = ( num_batched_examples // 100 * TRAIN_PERCENT ) + ( num_batched_examples % 100 
-                                                                            if (num_batched_examples % 100 < TRAIN_PERCENT) \
-                                                                            else num_batched_examples % 100 - TRAIN_PERCENT )
-    num_batched_test_examples = num_batched_examples - num_batched_train_examples
-    print( "Number of (batched) training examples:", num_batched_train_examples )
-    print( "Number of (batched) testing examples:", num_batched_test_examples )
+    num_train_examples = ( num_examples // 100 * TRAIN_PERCENT ) + ( num_examples % 100 
+                                                                        if (num_examples % 100 < TRAIN_PERCENT) \
+                                                                        else num_examples % 100 - TRAIN_PERCENT )
+    num_test_examples = num_examples - num_train_examples
+    print( "Number of training examples:", num_train_examples )
+    print( "Number of testing examples:", num_test_examples )
     dsTrain = dsTrain \
-                    .shuffle(num_batched_train_examples) \
+                    .shuffle( num_train_examples ) \
                     .repeat() \
+                    .batch(BATCH_SIZE) \
+                    .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
                     .cache().prefetch(buffer_size=AUTOTUNE)
     dsTest = dsTest \
+                    .batch(BATCH_SIZE) \
+                    .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
                     .cache().prefetch(buffer_size=AUTOTUNE)
+                    
+    
+
+                    
 
     # Build the model
     print("Building the model...")
@@ -185,13 +188,13 @@ if __name__ == '__main__':
     print("Starting testing...")
 
     # Setup the model
-    steps_per_epoch = num_batched_train_examples
+    steps_per_epoch = num_train_examples // BATCH_SIZE
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     # Test the initial performance of the model
     # regression_model.evaluate(
     #     x=dsTest,
-    #     steps=num_batched_test_examples
+    #     steps=num_test_examples // BATCH_SIZE
     # )
     y_init = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
     print(y_init)
@@ -205,6 +208,9 @@ if __name__ == '__main__':
     )
 
     # Test the performance of the trained model
-    regression_model.evaluate(dsTest)
+    regression_model.evaluate(
+        x=dsTest,
+        steps=num_test_examples // BATCH_SIZE
+    )
     y = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
     print(y)
