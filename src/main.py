@@ -181,17 +181,12 @@ if __name__ == '__main__':
 
     # Drop the label b/c testing the model
     print("Starting testing...")
-    # for row in dataset.take(100).map(lambda x,y: x):
-    #     bert_raw_result = regression_model(row)
-    #     print(tf.sigmoid(bert_raw_result))
 
-    # TODO: Train the model
+    # Setup the model
     steps_per_epoch = num_batched_train_examples
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
-    dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
-                    .batch(BATCH_SIZE) \
-                    .map( lambda ex,label: (bert_preprocess_model(ex),label) )
+    # Test the initial performance of the model
     regression_model.evaluate(dsTest)
     y_init = regression_model.predict(dsTest)
 
@@ -202,10 +197,6 @@ if __name__ == '__main__':
         callbacks = cp_callback
     )
 
-    # dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
-    #                 .batch(BATCH_SIZE) \
-    #                 .map( lambda ex,label: (bert_preprocess_model(ex),label) )
     regression_model.evaluate(dsTest)
     y = regression_model.predict(dsTest)
-    df = pd.DataFrame( list(zip(y_init, y, label[100:150])), columns=['Init', 'Predicted', 'Actual'] )
-    print(df)
+    print( y[:100] )
