@@ -16,8 +16,8 @@ DATA_PATH = "data/hydrated/all.json"
 TRAIN_PERCENT = 80
 
 # Model Constants
-NUM_EPOCHS = 20
-BATCH_SIZE = 32
+NUM_EPOCHS = 3
+BATCH_SIZE = 16
 # OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
 OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0001)   # Use w/o dropout
@@ -35,7 +35,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_path, 
     verbose=1, 
     save_weights_only=True,
-    period=50)  # Saves every 10 epochs
+    period=1)  # Saves every epoch
 
 
 # From:
@@ -138,37 +138,42 @@ if __name__ == '__main__':
     # Load the data
     _, text, label = parseData()
     num_examples = len(label)
-    print(num_examples)
+    num_batched_examples = num_examples // BATCH_SIZE
+    print( "Number of examples:", num_examples )
+    print( "Number of (batched) examples:", num_batched_examples )
 
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
     
     # Prepare the dataset
     print("Preparing the dataset...")
-    dsTrain = tf.data.Dataset.from_tensor_slices( (text, label) ) \
-                    .shuffle(num_examples) \
-                    .repeat() \
+    dataset = tf.data.Dataset.from_tensor_slices( (text, label) ) \
                     .batch(BATCH_SIZE) \
                     .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
-                    .cache().prefetch(buffer_size=AUTOTUNE)
+                    .shuffle(100)
 
     ################################ CHANGE SUFFLE TO NUM_TRAIN AND NUM_TEST
     # Split the dataset
     # Idea from https://stackoverflow.com/a/58452268
-    # dsTrain = dataset.enumerate() \
-    #                 .filter( lambda x,y: x % 100 < TRAIN_PERCENT ) \
-    #                 .map( lambda x,y: y )
-    # dsTest = dataset.enumerate() \
-    #                 .filter( lambda x,y: x % 100 >= TRAIN_PERCENT ) \
-    #                 .map( lambda x,y: y )
+    dsTrain = dataset.enumerate() \
+                    .filter( lambda x,y: x % 100 < TRAIN_PERCENT ) \
+                    .map( lambda x,y: y )
+    dsTest = dataset.enumerate() \
+                    .filter( lambda x,y: x % 100 >= TRAIN_PERCENT ) \
+                    .map( lambda x,y: y )
     
     # Finish preparing the datasets
-    # dsTrain = dsTrain.shuffle(num_examples) \
-    #                 .repeat() \
-    #                 .batch(BATCH_SIZE) \
-    #                 .cache().prefetch(buffer_size=AUTOTUNE)
-    # dsTest = dsTest.batch(BATCH_SIZE) \
-    #                 .cache().prefetch(buffer_size=AUTOTUNE)
+    num_batched_train_examples = ( num_batched_examples // 100 * TRAIN_PERCENT ) + ( num_batched_examples % 100 
+                                                                            if (num_batched_examples % 100 < TRAIN_PERCENT) \
+                                                                            else num_batched_examples % 100 - TRAIN_PERCENT )
+    print( "Number of (batched) training examples:", num_batched_train_examples )
+    dsTrain = dsTrain \
+                    .shuffle(num_batched_train_examples) \
+                    .repeat() \
+                    .cache().prefetch(buffer_size=AUTOTUNE)
+    dsTest = dsTest \
+                    .batch(BATCH_SIZE) \
+                    .cache().prefetch(buffer_size=AUTOTUNE)
 
     # Build the model
     print("Building the model...")
@@ -181,7 +186,7 @@ if __name__ == '__main__':
     #     print(tf.sigmoid(bert_raw_result))
 
     # TODO: Train the model
-    steps_per_epoch = num_examples // BATCH_SIZE
+    steps_per_epoch = num_batched_train_examples
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
