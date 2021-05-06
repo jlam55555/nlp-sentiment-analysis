@@ -17,9 +17,10 @@ TRAIN_PERCENT = 80
 
 # Model Constants
 NUM_EPOCHS = 20
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 # OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
-OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005)
+# OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
+OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0001)   # Use w/o dropout
 LOSS = tf.keras.losses.MeanSquaredError()
 METRICS = tf.keras.metrics.MeanSquaredError()
 AUTOTUNE = tf.data.AUTOTUNE
@@ -138,26 +139,18 @@ if __name__ == '__main__':
     _, text, label = parseData()
     num_examples = len(label)
     print(num_examples)
-    label *= 100
+
     # Pre-process the data
     bert_preprocess_model = make_bert_preprocess_model(['sentence'])
     
     # Prepare the dataset
     print("Preparing the dataset...")
-    dsTrain = tf.data.Dataset.from_tensor_slices( (text[:100], label[:100]) ) \
-                    .shuffle(100) \
+    dsTrain = tf.data.Dataset.from_tensor_slices( (text, label) ) \
+                    .shuffle(num_examples) \
                     .repeat() \
                     .batch(BATCH_SIZE) \
                     .map( lambda ex,label: (bert_preprocess_model(ex),label) ) \
                     .cache().prefetch(buffer_size=AUTOTUNE)
-
-                    #(1,)       sentences
-                    #(N,)       batching
-                    #(N,128)    embedding
-
-                    #(1,)       sentences
-                    #(1,128)    embedding
-                    #(N,1,128)  batching
 
     ################################ CHANGE SUFFLE TO NUM_TRAIN AND NUM_TEST
     # Split the dataset
@@ -188,7 +181,7 @@ if __name__ == '__main__':
     #     print(tf.sigmoid(bert_raw_result))
 
     # TODO: Train the model
-    steps_per_epoch = 100 // BATCH_SIZE
+    steps_per_epoch = num_examples // BATCH_SIZE
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     dsTest = tf.data.Dataset.from_tensor_slices( (text[100:150], label[100:150]) ) \
