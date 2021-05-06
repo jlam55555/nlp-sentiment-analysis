@@ -14,10 +14,11 @@ DATA_PATH = "data/hydrated/all.json"
 
 # Constants
 TRAIN_PERCENT = 80
-
-# Model Constants
 NUM_EPOCHS = 3
 BATCH_SIZE = 16
+NUM_EXAMPLES_TO_VIEW = 100 // BATCH_SIZE    # Number of examples to display the model's prediction for
+
+# Model Constants
 # OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
 OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0001)   # Use w/o dropout
@@ -166,13 +167,14 @@ if __name__ == '__main__':
     num_batched_train_examples = ( num_batched_examples // 100 * TRAIN_PERCENT ) + ( num_batched_examples % 100 
                                                                             if (num_batched_examples % 100 < TRAIN_PERCENT) \
                                                                             else num_batched_examples % 100 - TRAIN_PERCENT )
+    num_batched_test_examples = num_batched_examples - num_batched_train_examples
     print( "Number of (batched) training examples:", num_batched_train_examples )
+    print( "Number of (batched) testing examples:", num_batched_test_examples )
     dsTrain = dsTrain \
                     .shuffle(num_batched_train_examples) \
                     .repeat() \
                     .cache().prefetch(buffer_size=AUTOTUNE)
     dsTest = dsTest \
-                    .batch(BATCH_SIZE) \
                     .cache().prefetch(buffer_size=AUTOTUNE)
 
     # Build the model
@@ -187,16 +189,22 @@ if __name__ == '__main__':
     regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     # Test the initial performance of the model
-    regression_model.evaluate(dsTest)
-    y_init = regression_model.predict(dsTest)
+    # regression_model.evaluate(
+    #     x=dsTest,
+    #     steps=num_batched_test_examples
+    # )
+    y_init = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
+    print(y_init)
 
+    # Train the model
     regression_model.fit(
         x=dsTrain,
         epochs=NUM_EPOCHS,
         steps_per_epoch=steps_per_epoch,
-        callbacks = cp_callback
+        callbacks=cp_callback
     )
 
+    # Test the performance of the trained model
     regression_model.evaluate(dsTest)
-    y = regression_model.predict(dsTest)
-    print( y[:100] )
+    y = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
+    print(y)
