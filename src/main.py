@@ -105,7 +105,6 @@ def build_classification_model(num_features):
     encoder = hub.KerasLayer("https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/4",
                                 trainable=True, name='encoder')
     net = encoder(inputs)['pooled_output']
-    net = tf.keras.layers.Dropout(rate=0.1)(net)
     net = tf.keras.layers.BatchNormalization()(net)
     net = tf.keras.layers.Dense(512, activation=tf.keras.layers.ReLU(), name='finetune1')(net)
     net = tf.keras.layers.Dense(256, activation=tf.keras.layers.ReLU(), name='finetune2')(net)
