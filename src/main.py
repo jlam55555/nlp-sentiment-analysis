@@ -145,7 +145,6 @@ if __name__ == '__main__':
     print("Preparing the dataset...")
     dataset = tf.data.Dataset.from_tensor_slices( (text, label) )
 
-    ################################ CHANGE SUFFLE TO NUM_TRAIN AND NUM_TEST
     # Split the dataset
     # Idea from https://stackoverflow.com/a/58452268
     dsTrain = dataset.enumerate() \
