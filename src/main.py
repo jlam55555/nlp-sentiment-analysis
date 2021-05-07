@@ -19,11 +19,11 @@ BATCH_SIZE = 16
 NUM_EXAMPLES_TO_VIEW = 100 // BATCH_SIZE    # Number of examples to display the model's prediction for
 
 # Model Constants
-# OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
+OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
-OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.00025)   # Use w/o dropout
-LOSS = tf.keras.losses.MeanSquaredError()
-METRICS = tf.keras.metrics.MeanSquaredError()
+# OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.00025)
+LOSS = tf.keras.losses.SparseCategoricalCrossentropy()
+METRICS = tf.keras.metrics.Accuracy()
 AUTOTUNE = tf.data.AUTOTUNE
 
 # Set the checkpoint
@@ -94,8 +94,7 @@ def make_bert_preprocess_model(sentence_features, seq_length=128):
     return tf.keras.Model(input_segments, model_inputs)
 
 
-# Maybe add another dense layer
-def build_regression_model(num_features):
+def build_classification_model(num_features):
 
     inputs = dict(
         input_word_ids=tf.keras.layers.Input(shape=(None,), dtype=tf.int32),
@@ -108,10 +107,12 @@ def build_regression_model(num_features):
     net = encoder(inputs)['pooled_output']
     net = tf.keras.layers.Dropout(rate=0.1)(net)
     net = tf.keras.layers.BatchNormalization()(net)
-    net = tf.keras.layers.Dense(128, activation=tf.keras.layers.ReLU(), name='finetune1')(net)
-    net = tf.keras.layers.Dense(64, activation=tf.keras.layers.ReLU(), name='finetune2')(net)
-    net = tf.keras.layers.Dense(32, activation=tf.keras.layers.ReLU(), name='finetune3')(net)
+    net = tf.keras.layers.Dense(512, activation=tf.keras.layers.ReLU(), name='finetune1')(net)
+    net = tf.keras.layers.Dense(256, activation=tf.keras.layers.ReLU(), name='finetune2')(net)
+    net = tf.keras.layers.Dense(128, activation=tf.keras.layers.ReLU(), name='finetune3')(net)
+    net = tf.keras.layers.Dense(64, activation=tf.keras.layers.ReLU(), name='finetune4')(net)
     net = tf.keras.layers.Dense(num_features, activation=None, name='regression')(net)
+    net = tf.keras.layers.Softmax()(net)
     return tf.keras.Model(inputs, net, name='prediction')
 
 
@@ -127,9 +128,6 @@ def parseData():
 
     # Split the list of tuples into separate lists
     names, text, label = zip(*parsed)
-
-    # Convert to a dict of tensors
-    # inputs = { text), 'label': tf.convert_to_tensor(label) }
 
     return list(names), list(text), list(label)
 
@@ -178,25 +176,25 @@ if __name__ == '__main__':
 
     # Build the model
     print("Building the model...")
-    regression_model = build_regression_model(1)
+    model = build_classification_model(3)
 
     # Drop the label b/c testing the model
     print("Starting testing...")
 
     # Setup the model
     steps_per_epoch = num_train_examples // BATCH_SIZE
-    regression_model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
+    model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     # Test the initial performance of the model
-    # regression_model.evaluate(
+    # model.evaluate(
     #     x=dsTest,
     #     steps=num_test_examples // BATCH_SIZE
     # )
-    y_init = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
+    y_init = model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
     print(y_init)
 
     # Train the model
-    regression_model.fit(
+    model.fit(
         x=dsTrain,
         epochs=NUM_EPOCHS,
         steps_per_epoch=steps_per_epoch,
@@ -206,9 +204,9 @@ if __name__ == '__main__':
     )
 
     # Test the performance of the trained model
-    regression_model.evaluate(
+    model.evaluate(
         x=dsTest,
         steps=num_test_examples // BATCH_SIZE
     )
-    y = regression_model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
+    y = model.predict( dsTest.take(NUM_EXAMPLES_TO_VIEW) )
     print(y)
