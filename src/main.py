@@ -23,7 +23,7 @@ OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
 # OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.00025)
 LOSS = tf.keras.losses.SparseCategoricalCrossentropy()
-METRICS = tf.keras.metrics.Accuracy()
+METRICS = tf.keras.metrics.SparseCategoricalAccuracy()
 AUTOTUNE = tf.data.AUTOTUNE
 
 # Set the checkpoint
@@ -124,7 +124,7 @@ def parseData():
 
     # Parse the json
     parsed = json.loads(raw)
-    parsed = [ ( str(x['id']), np.array( [x['text']] ), x['label'] ) for x in parsed ]
+    parsed = [ ( str(x['id']), np.array( [x['text']] ), x['label2']+1 ) for x in parsed ]
 
     # Split the list of tuples into separate lists
     names, text, label = zip(*parsed)
