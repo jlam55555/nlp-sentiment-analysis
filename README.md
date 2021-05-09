@@ -1,43 +1,26 @@
 # nlp-sentiment-analysis
 
-
+# Report
+(Coming soon)
 
 # Instructions
-
-Unix
-Virtual environment
+The data file used is stored in a zip file and must be unzipped prior to training.
 ```bash
-# to create
-python3 -m venv venv
-
-# to activate
-source venv/bin/activate
+$ unzip data/hydrated/all.json.zip
 ```
 
-Windows
-```cmd
-venv\Scripts\activate
-```
-
-Leaving the virtual environment
+It's recommended to use a python venv to manage dependencies.
 ```bash
-deactivate
+$ python3 -m venv venv
+$ source venv/bin/activate
 ```
 
-Freezing packages (do this when you're in the environment)
+The main file is located at
 ```bash
-pip freeze >requirements.txt
+(venv) $ python src/main.py
 ```
 
-```bash
-pip install -r requirements.txt
-```
+# Dataset
+[IEEE COVID-19 Geotagged Tweets Dataset][dataset]
 
-
-TODO:
-
-The challenge
-https://www.computer.org/publications/tech-news/events/global-student-challenge-competition-2021/
-
-Dataset
-https://ieee-dataport.org/open-access/coronavirus-covid-19-geo-tagged-tweets-dataset
+[dataset]: https://ieee-dataport.org/open-access/coronavirus-covid-19-geo-tagged-tweets-dataset
