@@ -7,9 +7,9 @@ with open('data/hydrated/all.json') as jsonfile:
 bins = [0, 0, 0]
 for i, l in enumerate(data):
 	data[i] = l = l['label']
-	if l < 0:
+	if l < -0.05:
 		bins[0] += 1
-	elif l > 0:
+	elif l > 0.05:
 		bins[2] += 1
 	else:
 		bins[1] += 1
