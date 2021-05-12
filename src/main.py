@@ -13,15 +13,12 @@ import requests
 DATA_PATH = "data/hydrated/all.json"
 
 # Constants
-TRAIN_PERCENT = 80
+TRAIN_PERCENT = 90
 NUM_EPOCHS = 3
 BATCH_SIZE = 16
 NUM_EXAMPLES_TO_VIEW = 100 // BATCH_SIZE    # Number of examples to display the model's prediction for
 
 # Model Constants
-OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=0.001)
-# OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.0005) # Use with dropout
-# OPTIMIZER = tf.keras.optimizers.SGD(learning_rate=0.00025)
 LOSS = tf.keras.losses.SparseCategoricalCrossentropy()
 METRICS = tf.keras.metrics.SparseCategoricalAccuracy()
 AUTOTUNE = tf.data.AUTOTUNE
@@ -176,11 +173,20 @@ if __name__ == '__main__':
     print("Building the model...")
     model = build_classification_model(3)
 
-    # Drop the label b/c testing the model
-    print("Starting testing...")
-
     # Setup the model
     steps_per_epoch = num_train_examples // BATCH_SIZE
+
+    # Define learning rate schedule
+    learning_rate_fn = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+        [steps_per_epoch//4, steps_per_epoch//2, steps_per_epoch, 
+            steps_per_epoch + steps_per_epoch//4, steps_per_epoch + steps_per_epoch//2, steps_per_epoch + steps_per_epoch,
+            2*steps_per_epoch + steps_per_epoch//4, 2*steps_per_epoch + steps_per_epoch//2, 2*steps_per_epoch + steps_per_epoch, ],
+        [1e-2, 1e-3, 1e-4, 5e-5,
+            1e-5, 5e-6, 1e-6, 
+            5e-7, 1e-7, 5e-7]
+    )
+    OPTIMIZER = tf.keras.optimizers.Adam(learning_rate=learning_rate_fn)
+
     model.compile( optimizer=OPTIMIZER, loss=LOSS, metrics=METRICS )
 
     # Test the initial performance of the model
@@ -202,6 +208,7 @@ if __name__ == '__main__':
     )
 
     # Test the performance of the trained model
+    print("Starting testing...")
     model.evaluate(
         x=dsTest,
         steps=num_test_examples // BATCH_SIZE
